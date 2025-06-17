@@ -33,6 +33,17 @@ def upload_to_drive(file, filename):
         return filename
     return None
 
+def upload_summary_to_drive():
+    if os.path.exists(SUMMARY_FILE):
+        with open(SUMMARY_FILE, "rb") as f:
+            file_data = io.BytesIO(f.read())
+        media = MediaIoBaseUpload(file_data, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        file_metadata = {
+            "name": f"summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            "parents": [DRIVE_FOLDER_ID]
+        }
+        drive_service.files().create(body=file_metadata, media_body=media, fields="id").execute()
+
 def log_submission(timestamp, department, pname, excel_name, doc_names):
     row = {
         "Timestamp": timestamp,
@@ -99,5 +110,16 @@ if st.button("Submit All"):
             else:
                 st.warning(f"⚠️ Incomplete data for Programme {i}. Skipping.")
 
+        upload_summary_to_drive()
         st.success("✅ All complete programmes submitted, uploaded to Drive, and logged successfully!")
         st.balloons()
+
+# Manual download of the summary Excel file if it exists
+if os.path.exists(SUMMARY_FILE):
+    with open(SUMMARY_FILE, "rb") as f:
+        st.download_button(
+            label="📥 Download Latest Summary Excel",
+            data=f,
+            file_name="submissions_summary.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
