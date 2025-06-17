@@ -2,19 +2,34 @@ import streamlit as st
 import os
 import pandas as pd
 from datetime import datetime
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+import io
+import json
 
 st.set_page_config(page_title="Programme Upload Form", layout="wide")
 
-UPLOAD_DIR = "uploaded_files"
 SUMMARY_FILE = "submissions_summary.xlsx"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+SERVICE_ACCOUNT_FILE = "pdf-auto-uploader-0835284833d4.json"
+DRIVE_FOLDER_ID = "1070AoxMzYtgClEakB7ydyRskBgil06qn"
 
-def save_file(file, prefix, label):
+# Authenticate with Google Drive API
+credentials = service_account.Credentials.from_service_account_file(
+    SERVICE_ACCOUNT_FILE,
+    scopes=["https://www.googleapis.com/auth/drive"]
+)
+drive_service = build("drive", "v3", credentials=credentials)
+
+def upload_to_drive(file, filename):
     if file is not None:
-        filename = f"{prefix}_{label}_{file.name}"
-        filepath = os.path.join(UPLOAD_DIR, filename)
-        with open(filepath, "wb") as f:
-            f.write(file.getbuffer())
+        file_data = io.BytesIO(file.getbuffer())
+        media = MediaIoBaseUpload(file_data, mimetype=file.type)
+        file_metadata = {
+            "name": filename,
+            "parents": [DRIVE_FOLDER_ID]
+        }
+        uploaded = drive_service.files().create(body=file_metadata, media_body=media, fields="id").execute()
         return filename
     return None
 
@@ -74,15 +89,15 @@ if st.button("Submit All"):
         for i, (pname, excel, docs) in enumerate([p1_data, p2_data, p3_data, p4_data], start=1):
             if pname and excel and all(docs):
                 prefix = f"P{i}_{pname.replace(' ', '_')}_{department.replace(' ', '_')}"
-                excel_name = save_file(excel, prefix, "Excel")
+                excel_name = upload_to_drive(excel, f"{prefix}_Excel_{excel.name}")
                 doc_names = [
-                    save_file(docs[0], prefix, "2022-2023"),
-                    save_file(docs[1], prefix, "2023-2024"),
-                    save_file(docs[2], prefix, "2024-2025"),
+                    upload_to_drive(docs[0], f"{prefix}_2022-2023_{docs[0].name}"),
+                    upload_to_drive(docs[1], f"{prefix}_2023-2024_{docs[1].name}"),
+                    upload_to_drive(docs[2], f"{prefix}_2024-2025_{docs[2].name}"),
                 ]
                 log_submission(timestamp, department, pname, excel_name, doc_names)
             else:
                 st.warning(f"⚠️ Incomplete data for Programme {i}. Skipping.")
 
-        st.success("✅ All complete programmes submitted and logged successfully!")
+        st.success("✅ All complete programmes submitted, uploaded to Drive, and logged successfully!")
         st.balloons()
