@@ -11,12 +11,12 @@ import json
 st.set_page_config(page_title="Programme Upload Form", layout="wide")
 
 SUMMARY_FILE = "submissions_summary.xlsx"
-SERVICE_ACCOUNT_FILE = "pdf-auto-uploader-0835284833d4.json"
 DRIVE_FOLDER_ID = "1070AoxMzYtgClEakB7ydyRskBgil06qn"
 
-# Authenticate with Google Drive API
-credentials = service_account.Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_FILE,
+# Authenticate with Google Drive API using st.secrets
+service_account_info = json.loads(st.secrets["gdrive_credentials"])
+credentials = service_account.Credentials.from_service_account_info(
+    service_account_info,
     scopes=["https://www.googleapis.com/auth/drive"]
 )
 drive_service = build("drive", "v3", credentials=credentials)
